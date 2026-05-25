@@ -1,23 +1,15 @@
-from flask import Flask, render_template, request
+import streamlit as st
 import joblib
 import re
 import string
 from nltk.stem.porter import PorterStemmer
 
 # =========================
-# FLASK APP
-# =========================
-app = Flask(__name__)
-
-# =========================
-# LOAD MODEL + VECTORIZER
+# LOAD MODEL
 # =========================
 model = joblib.load("model.pkl")
 vectorizer = joblib.load("vectorizer.pkl")
 
-# =========================
-# STEMMER
-# =========================
 ps = PorterStemmer()
 
 # =========================
@@ -25,67 +17,47 @@ ps = PorterStemmer()
 # =========================
 def clean_text(text):
 
-    # lowercase
     text = text.lower()
 
-    # remove links
     text = re.sub(r'http\S+', '', text)
 
-    # remove punctuation
     text = text.translate(
         str.maketrans('', '', string.punctuation)
     )
 
-    # remove numbers
     text = re.sub(r'\d+', '', text)
 
-    # split words
     words = text.split()
 
-    # stemming
     words = [ps.stem(word) for word in words]
 
     return " ".join(words)
 
 # =========================
-# HOME PAGE
+# UI DESIGN
 # =========================
-@app.route('/')
-def home():
-    return render_template("index.html")
+st.set_page_config(page_title="SMS Spam Detector", page_icon="📩")
 
-# =========================
-# PREDICTION ROUTE
-# =========================
-@app.route('/predict', methods=['POST'])
-def predict():
+st.title("📩 SMS Spam Detection System")
 
-    # get message from textarea
-    message = request.form['message']
+st.write("Enter a message and check if it is SPAM or NOT")
 
-    # clean message
-    cleaned_message = clean_text(message)
+# input box
+message = st.text_area("Enter SMS Message")
 
-    # vectorize
-    vector_input = vectorizer.transform([cleaned_message])
+# button
+if st.button("Predict"):
 
-    # predict
-    result = model.predict(vector_input)[0]
-
-    # output
-    if result == 1:
-        prediction = "🚨 SPAM MESSAGE"
+    if message.strip() == "":
+        st.warning("Please enter a message")
     else:
-        prediction = "✅ NOT SPAM"
+        cleaned = clean_text(message)
 
-    return render_template(
-        "index.html",
-        prediction=prediction,
-        user_message=message
-    )
+        vector_input = vectorizer.transform([cleaned])
 
-# =========================
-# RUN APP
-# =========================
-if __name__ == "__main__":
-    app.run(debug=True)
+        result = model.predict(vector_input)[0]
+
+        if result == 1:
+            st.error("🚨 SPAM MESSAGE")
+        else:
+            st.success("✅ NOT SPAM")
